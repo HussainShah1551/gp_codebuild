@@ -1,0 +1,33 @@
+{
+  "name": "gym-passport-automation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "gym-passport-automation": "bin/gym-passport-automation.js"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cy:run": "cypress run",
+    "cy:open": "cypress open",
+    "cy:gp": "cypress run --spec \"cypress/e2e/gp_csv_automation .js\"",
+    "cy:gp:headed": "cypress run --headed --spec \"cypress/e2e/gp_csv_automation .js\"",
+    "cy:browser": "cypress run --headed --no-exit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-cdk-lib": "^2.191.0",
+    "aws-sdk": "^2.1692.0",
+    "constructs": "^10.4.2",
+    "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0"
+  },
+  "devDependencies": {
+    "cypress": "^14.3.2"
+  }
+}

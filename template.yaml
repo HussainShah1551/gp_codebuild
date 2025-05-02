@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Gym Passport Automation with CodeBuild and Lambda
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: GitHub repository owner
+    Default: GITHUB_OWNER_PLACEHOLDER
+  
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: gym-passport-automation
+  
+  GitHubBranch:
+    Type: String
+    Description: GitHub repository branch
+    Default: main
+  
+  S3BucketName:
+    Type: String
+    Description: S3 bucket for storing CSV files
+    Default: emumba-gym-passport-csv
+
+Resources:
+  # S3 Bucket for storing CSV files
+  GymPassportCSVBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      VersioningConfiguration:
+        Status: Enabled
+
+  # CodeBuild Project
+  GymPassportCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: GymPassportAutomation
+      Description: CodeBuild project to run Gym Passport Cypress automation
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:7.0
+        PrivilegedMode: true  # Required for headless Chrome
+        EnvironmentVariables:
+          - Name: S3_BUCKET_NAME
+            Value: !Ref S3BucketName
+      Source:
+        Type: GITHUB
+        Location: !Sub https://github.com/${GitHubOwner}/${GitHubRepo}.git
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 18
+              commands:
+                - npm ci
+            build:
+              commands:
+                - echo "Running Cypress tests..."
+                - npx cypress run
+                - |
+                  if [ -d "cypress/downloads" ]; then
+                    echo "Uploading CSV files to S3..."
+                    aws s3 cp cypress/downloads/ s3://${S3_BUCKET_NAME}/$(date +%Y-%m-%d)/ --recursive --exclude "*" --include "*.csv"
+                  else
+                    echo "No downloads directory found"
+                  fi
+            post_build:
+              commands:
+                - echo "Automation completed on $(date)"
+          artifacts:
+            files:
+              - cypress/screenshots/**/*
+              - cypress/videos/**/*
+            discard-paths: no
+
+  # Lambda Function
+  GymPassportTriggerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lambda/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          CODEBUILD_PROJECT_NAME: !Ref GymPassportCodeBuildProject
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - codebuild:StartBuild
+              Resource: !GetAtt GymPassportCodeBuildProject.Arn
+        - S3ReadPolicy:
+            BucketName: !Ref S3BucketName
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketName
+
+  # IAM Role for CodeBuild
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Policies:
+        - PolicyName: CodeBuildBasePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${S3BucketName}
+                  - !Sub arn:aws:s3:::${S3BucketName}/*
+
+Outputs:
+  LambdaFunction:
+    Description: Lambda function that triggers the CodeBuild project
+    Value: !Ref GymPassportTriggerFunction
+  
+  CodeBuildProject:
+    Description: CodeBuild project for Gym Passport automation
+    Value: !Ref GymPassportCodeBuildProject
+  
+  S3Bucket:
+    Description: S3 bucket for storing CSV files
+    Value: !Ref GymPassportCSVBucket
