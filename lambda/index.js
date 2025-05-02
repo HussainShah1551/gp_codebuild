@@ -1,4 +1,5 @@
 // Lambda function to trigger CodeBuild project for Gym Passport automation
+// Repository: https://github.com/HussainShah1551/gp_codebuild.git
 const AWS = require('aws-sdk');
 const codebuild = new AWS.CodeBuild();
 const s3 = new AWS.S3();

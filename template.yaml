@@ -6,12 +6,12 @@ Parameters:
   GitHubOwner:
     Type: String
     Description: GitHub repository owner
-    Default: GITHUB_OWNER_PLACEHOLDER
+    Default: HussainShah1551
   
   GitHubRepo:
     Type: String
     Description: GitHub repository name
-    Default: gym-passport-automation
+    Default: gp_codebuild
   
   GitHubBranch:
     Type: String
