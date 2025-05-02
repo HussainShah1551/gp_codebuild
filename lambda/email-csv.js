@@ -71,14 +71,21 @@ function getReimbursementEmail(checkIns, name) {
 }
 
 exports.handler = async (event) => {
-  // SNS event contains S3 event notification
-  console.log('Received event:', JSON.stringify(event, null, 2));
-  const snsRecord = event.Records[0].Sns;
-  const s3Event = JSON.parse(snsRecord.Message);
-  const record = s3Event.Records[0];
-  const bucket = record.s3.bucket.name;
-  const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
-  console.log(`Processing S3 bucket: ${bucket}, key: ${key}`);
+  try {
+    // SNS event contains S3 event notification
+    console.log('Received event:', JSON.stringify(event, null, 2));
+    console.log('Environment variables:', JSON.stringify({
+      EMAIL_QUEUE_URL: process.env.EMAIL_QUEUE_URL,
+      SOURCE_EMAIL: process.env.SOURCE_EMAIL,
+      TARGET_EMAIL: process.env.TARGET_EMAIL
+    }, null, 2));
+    
+    const snsRecord = event.Records[0].Sns;
+    const s3Event = JSON.parse(snsRecord.Message);
+    const record = s3Event.Records[0];
+    const bucket = record.s3.bucket.name;
+    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
+    console.log(`Processing S3 bucket: ${bucket}, key: ${key}`);
 
   // Download the CSV file
   const fileObj = await s3.getObject({ Bucket: bucket, Key: key }).promise();
@@ -183,4 +190,8 @@ exports.handler = async (event) => {
 
   console.log('Lambda execution complete.');
   return { statusCode: 200, body: 'Filtered email sent and email jobs queued.' };
+  } catch (error) {
+    console.error('Error processing CSV file:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+  }
 };
