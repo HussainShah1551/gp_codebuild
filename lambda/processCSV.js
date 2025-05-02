@@ -21,7 +21,7 @@ exports.handler = async (event, context) => {
   }
   
   // Check if email replacement is enabled
-  const replaceEmails = process.env.REPLACE_EMAILS === 'true';
+  const replaceEmails = process.env.REPLACE_EMAILS === 'false';
   console.log(`Email replacement is ${replaceEmails ? 'enabled' : 'disabled'}`);
   
 
