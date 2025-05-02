@@ -31,22 +31,50 @@ describe('Gym Passport Login', () => {
 
     cy.contains('Employee Management').should('be.visible');
       
-      // Get the current month and year
+      // Get today's date
       const today = new Date();
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth();
-
-      // Create date for 1st of current month
-      const firstDay = new Date(currentYear, currentMonth, 1);
+      
+      // Create a date object for the first day of the current month
+      const firstDayOfCurrentMonth = new Date(today);
+      firstDayOfCurrentMonth.setDate(1); // Set to 1st of current month
+      
+      // Create a date object for the first day of the previous month
+      const firstDayOfPreviousMonth = new Date(firstDayOfCurrentMonth);
+      firstDayOfPreviousMonth.setMonth(firstDayOfCurrentMonth.getMonth() - 1);
+      
+      // Create a date object for the last day of the previous month
+      // This is one day before the first day of current month
+      const lastDayOfPreviousMonth = new Date(firstDayOfCurrentMonth);
+      lastDayOfPreviousMonth.setDate(0);
+      
+      // Store the date objects
+      const firstDay = firstDayOfPreviousMonth;
+      const lastDay = lastDayOfPreviousMonth;
+      
+      // Format the dates as YYYY-MM-DD for the input fields
       const firstDayFormatted = firstDay.toISOString().split('T')[0];
-
-      // Create date for the last day of current month
-      // Setting day to 0 of next month gives the last day of current month
-      const lastDay = new Date(currentYear, currentMonth + 1, 0);
       const lastDayFormatted = lastDay.toISOString().split('T')[0];
       
-      cy.log(`First day of month: ${firstDayFormatted}`);
-      cy.log(`Last day of month: ${lastDayFormatted}`);
+      // For logging purposes
+      const thisMonth = today.getMonth();
+      const thisYear = today.getFullYear();
+      const prevMonth = firstDay.getMonth();
+      const prevYear = firstDay.getFullYear();
+      
+      // For logging purposes
+      const previousYear = prevYear;
+      const previousMonthIndex = prevMonth;
+      const currentMonth = thisMonth;
+      const currentYear = thisYear;
+      
+      // Log both dates with more detail
+      cy.log(`First date (1st of previous month): ${firstDayFormatted}`);
+      cy.log(`Last date (last day of previous month): ${lastDayFormatted}`);
+      
+      // Log month names for clarity
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      cy.log(`Date range: ${months[previousMonthIndex]} 1, ${previousYear} to ${months[previousMonthIndex]} ${lastDay.getDate()}, ${previousYear}`);
+      cy.log(`Current month: ${months[currentMonth]}, Previous month: ${months[previousMonthIndex]}`);
       
       cy.get('input[type="date"]').first().type(firstDayFormatted);
       cy.get('input[type="date"]').last().type(lastDayFormatted);
