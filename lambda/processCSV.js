@@ -79,14 +79,18 @@ exports.handler = async (event, context) => {
         .on('data', (data) => {
           // Create a new object with only the fields we want to keep
           const filteredData = {};
-          
+
           // Only include fields that aren't in the exclude list
           for (const key in data) {
             if (!excludeFields.includes(key)) {
               filteredData[key] = data[key];
             }
           }
-          
+
+          // Log the date for each user (from 'Created At' field)
+          const createdAt = data['Created At'] || data['created at'] || data['created'] || '';
+          console.log(`User: ${filteredData['Username'] || 'Unknown'}, Created At: ${createdAt}`);
+
           // Replace the email with the specified one if enabled
           if (emailColumnName && !excludeFields.includes(emailColumnName)) {
             if (replaceEmails) {
@@ -95,7 +99,7 @@ exports.handler = async (event, context) => {
             }
             // If email replacement is disabled, keep the original email
           }
-          
+
           results.push(filteredData);
         })
         .on('end', resolve)
