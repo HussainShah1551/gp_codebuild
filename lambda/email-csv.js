@@ -36,39 +36,41 @@ async function sendFilteredCsvEmail(filteredCsv, attachmentName, adminEmail) {
 }
 
 // Helper to determine reimbursement subject, message, and amount
-function getReimbursementEmail(checkIns, name) {
+function getGymPassportDeduction(checkIns, name) {
+  const BASE_AMOUNT = 5500;
   if (checkIns >= 16) {
     return {
       subject: '🏆 Great Job! Your Gym Subscription is Fully Covered 🎉',
-      body: `Hi ${name},\n\nAwesome work this month! You’ve completed 16 or more check-ins through Gym Passport.\n\nAs part of our wellness program, we’re happy to share that RS9500 (100%) of your Gym Passport subscription fee will be covered by the company for this month.\n\nKeep up the great momentum and stay healthy! 💪\n\nBest Regards,\nEmumba Fitness Team 🏋️‍♂️`,
-      reimbursement: 9500
+      body: `Hi ${name},\n Awesome work this month! You’ve completed 16 or more check-ins through Gym Passport.\n As part of our wellness program, we’re happy to share that Rs 5500 (100%) of your Gym Passport subscription fee will be covered by the company for this month.\n Keep up the great momentum and stay healthy! 💪\nBest Regards,\n Emumba Fitness Team 🏋️‍♂️`,
+      deduction: 0
     };
   } else if (checkIns >= 12) {
     return {
       subject: '👏 Well Done! 75% of Your Gym Fee is Covered 🥈',
-      body: `Hi ${name},\n\nYou made 12 to 15 check-ins through Gym Passport this month — great job staying active!\n\nYou qualify to have Rs7125 (75%) of your Gym Passport subscription fee covered by the company this month. The remaining ₹2375 will be automatically deducted from your salary.\n\nStay consistent and keep moving! 🚴‍♀️\n\nBest Regards,\nEmumba Fitness Team 🏋️‍♀️`,
-      reimbursement: 7125
+      body: `Hi ${name},\n You made 12 to 15 check-ins through Gym Passport this month — great job staying active!\n You qualify to have Rs 4125 (75%) of your Gym Passport subscription fee covered by the company this month. The remaining Rs 1375 will be automatically deducted from your salary.\n Stay consistent and keep moving! 🚴‍♀️\nBest Regards,\n Emumba Fitness Team 🏋️‍♀️`,
+      deduction: 1375
     };
   } else if (checkIns >= 8) {
     return {
       subject: '💪 Keep It Up! 50% of Your Gym Fee is Covered 🏅',
-      body: `Hi ${name},\n\nYou logged 8 to 11 check-ins through Gym Passport this month — a solid effort!\n\nYou’re eligible for Rs4750 (50%) coverage of your Gym Passport subscription fee. The remaining Rs4750 will be deducted from your salary.\n\nYou're doing great — let’s aim even higher next month! 🚀\n\nBest Regards,\nEmumba Fitness Team 🏃‍♂️`,
-      reimbursement: 4750
+      body: `Hi ${name},\n You logged 8 to 11 check-ins through Gym Passport this month — a solid effort!\n You’re eligible for Rs 2750 (50%) coverage of your Gym Passport subscription fee. The remaining Rs 2750 will be deducted from your salary.\n You're doing great — let’s aim even higher next month! 🚀\nBest Regards,\n Emumba Fitness Team 🏃‍♂️`,
+      deduction: 2750
     };
   } else if (checkIns >= 4) {
     return {
       subject: '✅ Progress Made! 25% of Your Gym Fee is Covered',
-      body: `Hi ${name},\n\nYou made 4 to 7 check-ins through Gym Passport this month.\n\nYou qualify for Rs2375 (25%) coverage of your Gym Passport subscription fee. The remaining Rs7125 will be deducted from your salary.\n\nKeep striving for more next month! 🌟\n\nBest Regards,\nEmumba Fitness Team 💼`,
-      reimbursement: 2375
+      body: `Hi ${name},\n You made 4 to 7 check-ins through Gym Passport this month.\n You qualify for Rs 1375 (25%) coverage of your Gym Passport subscription fee. The remaining Rs 4125 will be deducted from your salary.\n Keep striving for more next month! 🌟\nBest Regards,\n Emumba Fitness Team 💼`,
+      deduction: 4125
     };
   } else {
     return {
       subject: '🕒 Let’s Refocus on Fitness Next Month',
-      body: `Hi ${name},\n\nWe noticed you made fewer than 4 check-ins through Gym Passport this month.\n\nAs per the company’s wellness policy, 0% of your Gym Passport subscription fee is eligible for reimbursement, and the full amount of Rs 9500 will be deducted from your salary.\n\nIf you wish to unsubscribe from Gym Passport, you can do so via Equokka during the first 3 days of the upcoming month.\n\nWe encourage you to stay active and take full advantage of this benefit if you choose to continue. Every check-in counts! 💡\n\nBest Regards,\nEmumba Fitness Team 🏢`,
-      reimbursement: 0
+      body: `Hi ${name},\n We noticed you made fewer than 4 check-ins through Gym Passport this month.\n As per the company’s wellness policy, 0% of your Gym Passport subscription fee is eligible for reimbursement, and the full amount of Rs 5500 will be deducted from your salary.\n If you wish to unsubscribe from Gym Passport, you can do so via Equokka during the first 3 days of the upcoming month.\n We encourage you to stay active and take full advantage of this benefit if you choose to continue. Every check-in counts! 💡\nBest Regards,\n Emumba Fitness Team 🏢`,
+      deduction: 5500
     };
   }
 }
+
 
 exports.handler = async (event) => {
   try {
@@ -91,23 +93,46 @@ exports.handler = async (event) => {
   const fileObj = await s3.getObject({ Bucket: bucket, Key: key }).promise();
   const fileContent = fileObj.Body;
 
-  // Parse CSV and filter for active subscription status
+  // Calculate previous month date range
+  const now = new Date();
+  const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const firstDayOfPrevMonth = new Date(firstDayOfCurrentMonth);
+  firstDayOfPrevMonth.setMonth(firstDayOfCurrentMonth.getMonth() - 1);
+  const lastDayOfPrevMonth = new Date(firstDayOfCurrentMonth - 1); // last day of prev month
+
+  // Log the calculated previous month date range
+  console.log('Date range for previous month filtering:');
+  console.log('First day of previous month:', firstDayOfPrevMonth.toISOString().slice(0, 10));
+  console.log('Last day of previous month:', lastDayOfPrevMonth.toISOString().slice(0, 10));
+
+  // Parse CSV and filter for previous month and active subscription status
   const activeRows = [];
   await new Promise((resolve, reject) => {
     Readable.from(fileContent)
       .pipe(csv())
       .on('data', (row) => {
+        // Get and parse Created At date
+        const createdAtRaw = row['Created At'] || row['created at'] || row['created'] || '';
+        let createdAtDate = null;
+        if (createdAtRaw) {
+          // Accept both 'YYYY-MM-DD HH:mm:ss' and 'YYYY-MM-DD' formats
+          const datePart = createdAtRaw.split(' ')[0];
+          createdAtDate = new Date(datePart);
+        }
+        // Only include if Created At is in previous month
+        if (!createdAtDate || createdAtDate < firstDayOfPrevMonth || createdAtDate > lastDayOfPrevMonth) {
+          return;
+        }
         // Normalize header keys for robustness
         const status = (row['subscription status'] || row['Subscription Status'] || row['Status'] || row['status'] || '').toLowerCase();
-        console.log(`Row status: ${status} for user: ${row.Username || row.Name || 'Unknown'}`);
-        if (status === 'active' || status === 'Active') {
+        if (status === 'active') {
           activeRows.push(row);
         }
       })
       .on('end', resolve)
       .on('error', reject);
   });
-  console.log(`Number of active rows: ${activeRows.length}`);
+  console.log(`Number of active rows for previous month: ${activeRows.length}`);
 
   // Add check-ins and reimbursement info to each active row
   for (const row of activeRows) {
@@ -124,14 +149,30 @@ exports.handler = async (event) => {
     // Set a standardized field name
     row['Check Ins'] = checkIns;
     
-    // Calculate reimbursement based on check-ins
+    // Calculate deduction based on check-ins
     const userName = row.Username || row.Name || row.username || row.name || '';
-    const reimbursementInfo = getReimbursementEmail(checkIns, userName);
-    row['Reimbursed Amount'] = reimbursementInfo.reimbursement;
+    const deductionInfo = getGymPassportDeduction(checkIns, userName);
+    row['Amount to be Deducted'] = deductionInfo.deduction;
     
-    console.log(`User: ${userName}, Check-ins: ${checkIns}, Reimbursement: ${reimbursementInfo.reimbursement}`);
+    console.log(`User: ${userName}, Check-ins: ${checkIns}, Deduction: ${deductionInfo.deduction}`);
   }
 
+  // Sort active rows by check-ins (descending order) and then by name (alphabetically)
+  activeRows.sort((a, b) => {
+    const checkInsA = parseInt(a['Check Ins'] || 0, 10);
+    const checkInsB = parseInt(b['Check Ins'] || 0, 10);
+    
+    // First sort by check-ins (descending)
+    if (checkInsB !== checkInsA) {
+      return checkInsB - checkInsA;
+    }
+    
+    // If check-ins are equal, sort by name alphabetically
+    const nameA = (a.Username || a.Name || a.username || a.name || '').toLowerCase();
+    const nameB = (b.Username || b.Name || b.username || b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+  
   // Create filtered CSV
   let filteredCsv;
   if (activeRows.length > 0) {
