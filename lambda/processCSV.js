@@ -63,6 +63,22 @@ exports.handler = async (event, context) => {
       'User Image', 'Phone', 'Password', 'Created At', 'Edit', 'Send Email'
     ];
     
+    // Helper to get first and last day of previous month
+    function getPreviousMonthDateRange() {
+      const now = new Date();
+      const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const firstDayOfPrevMonth = new Date(firstDayOfCurrentMonth);
+      firstDayOfPrevMonth.setMonth(firstDayOfCurrentMonth.getMonth() - 1);
+      const lastDayOfPrevMonth = new Date(firstDayOfCurrentMonth - 1); // last day of prev month
+      return { firstDayOfPrevMonth, lastDayOfPrevMonth };
+    }
+
+    // Calculate previous month date range
+    const { firstDayOfPrevMonth, lastDayOfPrevMonth } = getPreviousMonthDateRange();
+    console.log('Date range for previous month filtering:');
+    console.log('First day of previous month:', firstDayOfPrevMonth.toISOString().slice(0, 10));
+    console.log('Last day of previous month:', lastDayOfPrevMonth.toISOString().slice(0, 10));
+
     // Process the CSV file
     await new Promise((resolve, reject) => {
       fs.createReadStream(inputFilePath)
@@ -88,8 +104,19 @@ exports.handler = async (event, context) => {
           }
 
           // Log the date for each user (from 'Created At' field)
-          const createdAt = data['Created At'] || data['created at'] || data['created'] || '';
-          console.log(`User: ${filteredData['Username'] || 'Unknown'}, Created At: ${createdAt}`);
+          const createdAtRaw = data['Created At'] || data['created at'] || data['created'] || '';
+          let createdAtDate = null;
+          if (createdAtRaw) {
+            const datePart = createdAtRaw.split(' ')[0];
+            createdAtDate = new Date(datePart);
+          }
+          console.log(`User: ${filteredData['Username'] || 'Unknown'}, Created At: ${createdAtRaw}`);
+
+          // Only include if Created At is in previous month
+          if (!createdAtDate || createdAtDate < firstDayOfPrevMonth || createdAtDate > lastDayOfPrevMonth) {
+            console.log(`Excluded user: ${filteredData['Username'] || 'Unknown'} (Created At: ${createdAtRaw}) - outside previous month`);
+            return;
+          }
 
           // Replace the email with the specified one if enabled
           if (emailColumnName && !excludeFields.includes(emailColumnName)) {
