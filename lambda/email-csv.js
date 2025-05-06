@@ -93,17 +93,14 @@ exports.handler = async (event) => {
   const fileObj = await s3.getObject({ Bucket: bucket, Key: key }).promise();
   const fileContent = fileObj.Body;
 
-  // Calculate previous month date range
+  // Calculate the last day of previous month as cutoff date
   const now = new Date();
   const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const firstDayOfPrevMonth = new Date(firstDayOfCurrentMonth);
-  firstDayOfPrevMonth.setMonth(firstDayOfCurrentMonth.getMonth() - 1);
   const lastDayOfPrevMonth = new Date(firstDayOfCurrentMonth - 1); // last day of prev month
 
-  // Log the calculated previous month date range
-  console.log('Date range for previous month filtering:');
-  console.log('First day of previous month:', firstDayOfPrevMonth.toISOString().slice(0, 10));
-  console.log('Last day of previous month:', lastDayOfPrevMonth.toISOString().slice(0, 10));
+  // Log the calculated cutoff date
+  console.log('Date filtering cutoff:');
+  console.log('Including all entries up to:', lastDayOfPrevMonth.toISOString().slice(0, 10));
 
   // Parse CSV and filter for previous month and active subscription status
   const activeRows = [];
@@ -119,8 +116,15 @@ exports.handler = async (event) => {
           const datePart = createdAtRaw.split(' ')[0];
           createdAtDate = new Date(datePart);
         }
-        // Only include if Created At is in previous month
-        if (!createdAtDate || createdAtDate < firstDayOfPrevMonth || createdAtDate > lastDayOfPrevMonth) {
+        // Skip if date is invalid
+        if (!createdAtDate || isNaN(createdAtDate.getTime())) {
+          console.log(`Excluded user with invalid date: ${createdAtRaw}`);
+          return;
+        }
+        
+        // Only include entries with dates up to and including the last day of previous month
+        if (createdAtDate > lastDayOfPrevMonth) {
+          console.log(`Excluded user with date ${createdAtRaw} - after cutoff: ${lastDayOfPrevMonth.toISOString().slice(0, 10)}`);
           return;
         }
         // Normalize header keys for robustness
