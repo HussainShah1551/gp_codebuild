@@ -201,7 +201,7 @@ exports.handler = async (event) => {
     const name = row.Username || row.Name || row.username || row.name || '';
     const checkInsRaw = row['Check Ins'] || row['Check ins'] || row['check ins'] || row['Checkins'] || row['checkins'] || '0';
     const checkIns = parseInt(checkInsRaw, 10) || 0;
-    const { subject, body } = getReimbursementEmail(checkIns, name);
+    const { subject, body } = getGymPassportDeduction(checkIns, name);
     console.log(`Sending email to ${name} with ${checkIns} check-ins. Reimbursement info: ${row['Reimbursed Amount']}`);
     if (email) {
       const messageBody = JSON.stringify({
