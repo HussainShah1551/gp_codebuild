@@ -60,8 +60,11 @@ exports.handler = async (event, context) => {
     
     // Fields to exclude from the output CSV
     const excludeFields = [
-      'User Image', 'Phone', 'Password', 'Created At', 'Edit', 'Send Email'
+      'User Image', 'Phone', 'Password', 'Edit', 'Send Email'
     ];
+    
+    // Keep track of the Created At field for filtering, but don't include it in output
+    const dateFieldsToExcludeFromOutput = ['Created At'];
     
     // Helper to get the last day of previous month
     function getPreviousMonthDateRange() {
@@ -81,44 +84,61 @@ exports.handler = async (event, context) => {
       fs.createReadStream(inputFilePath)
         .pipe(csv())
         .on('headers', (headerList) => {
-          // Filter out the excluded headers
-          headers = headerList.filter(header => !excludeFields.includes(header));
+          // Find the date column for filtering
+          const dateColumnName = headerList.find(header => 
+            header === 'Created At' || header.toLowerCase() === 'created at' || header.toLowerCase() === 'created'
+          );
+          console.log(`Found date column: ${dateColumnName || 'none'}`);
           
           // Find the email column (could be named 'Email', 'email', 'EMAIL', etc.)
           emailColumnName = headerList.find(header => 
             header.toLowerCase().includes('email')
           );
+          
+          // Filter out the excluded headers for output
+          headers = headerList.filter(header => 
+            !excludeFields.includes(header) && 
+            !dateFieldsToExcludeFromOutput.includes(header)
+          );
+          
+          console.log(`Headers for output: ${headers.join(', ')}`);
         })
         .on('data', (data) => {
-          // Create a new object with only the fields we want to keep
+          // Create a filtered object with only the fields we want to keep for output
           const filteredData = {};
 
-          // Only include fields that aren't in the exclude list
-          for (const key in data) {
-            if (!excludeFields.includes(key)) {
-              filteredData[key] = data[key];
-            }
-          }
-
-          // Log the date for each user (from 'Created At' field)
+          // Get the date for filtering
           const createdAtRaw = data['Created At'] || data['created at'] || data['created'] || '';
           let createdAtDate = null;
+          
           if (createdAtRaw) {
+            // Handle date format 'YYYY-MM-DD HH:MM:SS'
             const datePart = createdAtRaw.split(' ')[0];
             createdAtDate = new Date(datePart);
           }
-          console.log(`User: ${filteredData['Username'] || 'Unknown'}, Created At: ${createdAtRaw}`);
+          
+          const username = data['Username'] || data['username'] || '';
+          console.log(`Processing user: ${username}, Created At: ${createdAtRaw}`);
 
-          // Only include if Created At is valid
-          if (!createdAtDate) {
-            console.log(`Excluded user: ${filteredData['Username'] || 'Unknown'} (Created At: ${createdAtRaw}) - no valid date`);
+          // Skip if date is invalid
+          if (!createdAtDate || isNaN(createdAtDate.getTime())) {
+            console.log(`Excluded user: ${username} - invalid date: ${createdAtRaw}`);
             return;
           }
           
-          // Only include entries with dates up to and including the last day of previous month
+          // Skip if date is after the cutoff (last day of previous month)
           if (createdAtDate > lastDayOfPrevMonth) {
-            console.log(`Excluded user: ${filteredData['Username'] || 'Unknown'} (Created At: ${createdAtRaw}) - date is after cutoff`);
+            console.log(`Excluded user: ${username} - date ${createdAtRaw} is after cutoff: ${lastDayOfPrevMonth.toISOString().slice(0, 10)}`);
             return;
+          }
+          
+          console.log(`Including user: ${username} - date ${createdAtRaw} is before or on cutoff`);
+          
+          // Add all fields that aren't in the exclude lists
+          for (const key in data) {
+            if (!excludeFields.includes(key) && !dateFieldsToExcludeFromOutput.includes(key)) {
+              filteredData[key] = data[key];
+            }
           }
 
           // Replace the email with the specified one if enabled
