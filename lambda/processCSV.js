@@ -63,21 +63,18 @@ exports.handler = async (event, context) => {
       'User Image', 'Phone', 'Password', 'Created At', 'Edit', 'Send Email'
     ];
     
-    // Helper to get first and last day of previous month
+    // Helper to get the last day of previous month
     function getPreviousMonthDateRange() {
       const now = new Date();
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const firstDayOfPrevMonth = new Date(firstDayOfCurrentMonth);
-      firstDayOfPrevMonth.setMonth(firstDayOfCurrentMonth.getMonth() - 1);
       const lastDayOfPrevMonth = new Date(firstDayOfCurrentMonth - 1); // last day of prev month
-      return { firstDayOfPrevMonth, lastDayOfPrevMonth };
+      return { lastDayOfPrevMonth };
     }
 
-    // Calculate previous month date range
-    const { firstDayOfPrevMonth, lastDayOfPrevMonth } = getPreviousMonthDateRange();
-    console.log('Date range for previous month filtering:');
-    console.log('First day of previous month:', firstDayOfPrevMonth.toISOString().slice(0, 10));
-    console.log('Last day of previous month:', lastDayOfPrevMonth.toISOString().slice(0, 10));
+    // Get the last day of previous month as cutoff date
+    const { lastDayOfPrevMonth } = getPreviousMonthDateRange();
+    console.log('Date filtering cutoff:');
+    console.log('Including all entries up to:', lastDayOfPrevMonth.toISOString().slice(0, 10));
 
     // Process the CSV file
     await new Promise((resolve, reject) => {
@@ -112,9 +109,15 @@ exports.handler = async (event, context) => {
           }
           console.log(`User: ${filteredData['Username'] || 'Unknown'}, Created At: ${createdAtRaw}`);
 
-          // Only include if Created At is in previous month
-          if (!createdAtDate || createdAtDate < firstDayOfPrevMonth || createdAtDate > lastDayOfPrevMonth) {
-            console.log(`Excluded user: ${filteredData['Username'] || 'Unknown'} (Created At: ${createdAtRaw}) - outside previous month`);
+          // Only include if Created At is valid
+          if (!createdAtDate) {
+            console.log(`Excluded user: ${filteredData['Username'] || 'Unknown'} (Created At: ${createdAtRaw}) - no valid date`);
+            return;
+          }
+          
+          // Only include entries with dates up to and including the last day of previous month
+          if (createdAtDate > lastDayOfPrevMonth) {
+            console.log(`Excluded user: ${filteredData['Username'] || 'Unknown'} (Created At: ${createdAtRaw}) - date is after cutoff`);
             return;
           }
 
