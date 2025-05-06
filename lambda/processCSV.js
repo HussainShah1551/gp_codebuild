@@ -66,6 +66,42 @@ exports.handler = async (event, context) => {
     // Keep track of the Created At field for filtering, but don't include it in output
     const dateFieldsToExcludeFromOutput = ['Created At'];
     
+    // Helper to determine reimbursement subject, message, and amount
+    function getGymPassportDeduction(checkIns, name) {
+      const BASE_AMOUNT = 5500;
+      if (checkIns >= 16) {
+        return {
+          subject: '🏆 Great Job! Your Gym Subscription is Fully Covered 🎉',
+          body: `Hi ${name},\n Awesome work this month! You've completed 16 or more check-ins through Gym Passport.\n As part of our wellness program, we're happy to share that Rs 5500 (100%) of your Gym Passport subscription fee will be covered by the company for this month.\n Keep up the great momentum and stay healthy! 💪\nBest Regards,\n Emumba Fitness Team 🏋️‍♂️`,
+          deduction: 0
+        };
+      } else if (checkIns >= 12) {
+        return {
+          subject: '👏 Well Done! 75% of Your Gym Fee is Covered 🥈',
+          body: `Hi ${name},\n You made 12 to 15 check-ins through Gym Passport this month — great job staying active!\n You qualify to have Rs 4125 (75%) of your Gym Passport subscription fee covered by the company this month. The remaining Rs 1375 will be automatically deducted from your salary.\n Stay consistent and keep moving! 🚴‍♀️\nBest Regards,\n Emumba Fitness Team 🏋️‍♀️`,
+          deduction: 1375
+        };
+      } else if (checkIns >= 8) {
+        return {
+          subject: '💪 Keep It Up! 50% of Your Gym Fee is Covered 🏅',
+          body: `Hi ${name},\n You logged 8 to 11 check-ins through Gym Passport this month — a solid effort!\n You're eligible for Rs 2750 (50%) coverage of your Gym Passport subscription fee. The remaining Rs 2750 will be deducted from your salary.\n You're doing great — let's aim even higher next month! 🚀\nBest Regards,\n Emumba Fitness Team 🏃‍♂️`,
+          deduction: 2750
+        };
+      } else if (checkIns >= 4) {
+        return {
+          subject: '✅ Progress Made! 25% of Your Gym Fee is Covered',
+          body: `Hi ${name},\n You made 4 to 7 check-ins through Gym Passport this month.\n You qualify for Rs 1375 (25%) coverage of your Gym Passport subscription fee. The remaining Rs 4125 will be deducted from your salary.\n Keep striving for more next month! 🌟\nBest Regards,\n Emumba Fitness Team 💼`,
+          deduction: 4125
+        };
+      } else {
+        return {
+          subject: '🕒 Let\'s Refocus on Fitness Next Month',
+          body: `Hi ${name},\n We noticed you made fewer than 4 check-ins through Gym Passport this month.\n As per the company's wellness policy, 0% of your Gym Passport subscription fee is eligible for reimbursement, and the full amount of Rs 5500 will be deducted from your salary.\n If you wish to unsubscribe from Gym Passport, you can do so via Equokka during the first 3 days of the upcoming month.\n We encourage you to stay active and take full advantage of this benefit if you choose to continue. Every check-in counts! 💡\nBest Regards,\n Emumba Fitness Team 🏢`,
+          deduction: 5500
+        };
+      }
+    }
+    
     // Helper to get the last day of previous month
     function getPreviousMonthDateRange() {
       const now = new Date();
@@ -140,6 +176,24 @@ exports.handler = async (event, context) => {
               filteredData[key] = data[key];
             }
           }
+          
+          // Calculate deduction based on check-ins
+          const checkInsRaw = data['Check Ins'] || data['Check ins'] || data['check ins'] || data['Checkins'] || data['checkins'] || '0';
+          const checkIns = parseInt(checkInsRaw, 10) || 0;
+          
+          // Standardize the check-ins field
+          filteredData['Check Ins'] = checkIns;
+          
+          // Calculate and add deduction amount
+          const deductionInfo = getGymPassportDeduction(checkIns, username);
+          filteredData['Amount to be Deducted'] = deductionInfo.deduction;
+          
+          // Make sure the Amount to be Deducted field will be included in the headers
+          if (!headers.includes('Amount to be Deducted')) {
+            headers.push('Amount to be Deducted');
+          }
+          
+          console.log(`User: ${username}, Check-ins: ${checkIns}, Deduction: ${deductionInfo.deduction}`);
 
           // Replace the email with the specified one if enabled
           if (emailColumnName && !excludeFields.includes(emailColumnName)) {
@@ -157,11 +211,42 @@ exports.handler = async (event, context) => {
     });
     
     console.log(`Filtered headers: ${headers.join(', ')}`);
+    console.log(`Number of records to write: ${results.length}`);
+    
+    // Make sure all fields in the results are represented in the headers
+    if (results.length > 0) {
+      const sampleRecord = results[0];
+      Object.keys(sampleRecord).forEach(key => {
+        if (!headers.includes(key)) {
+          headers.push(key);
+          console.log(`Added missing header: ${key}`);
+        }
+      });
+    }
+    
+    // Sort results by check-ins (descending) and then alphabetically by username
+    results.sort((a, b) => {
+      // First sort by check-ins (descending)
+      const checkInsA = parseInt(a['Check Ins'] || 0, 10);
+      const checkInsB = parseInt(b['Check Ins'] || 0, 10);
+      
+      if (checkInsB !== checkInsA) {
+        return checkInsB - checkInsA;
+      }
+      
+      // If check-ins are equal, sort by username alphabetically
+      const usernameA = (a.Username || '').toLowerCase();
+      const usernameB = (b.Username || '').toLowerCase();
+      return usernameA.localeCompare(usernameB);
+    });
+    
+    console.log('Sorted results by check-ins (descending) and then alphabetically');
     
     // Write the modified data back to a new CSV file
     const csvWriter = createObjectCsvWriter({
       path: outputFilePath,
-      header: headers.map(header => ({ id: header, title: header }))
+      header: headers.map(header => ({ id: header, title: header })),
+      alwaysQuote: true // Ensure all fields are properly quoted
     });
     
     await csvWriter.writeRecords(results);
