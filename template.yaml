@@ -67,6 +67,7 @@ Resources:
                 - |
                   if [ -d "cypress/downloads" ]; then
                     echo "Uploading CSV files to S3..."
+                    'export REPLACE_EMAILS=false && ' +
                     aws s3 cp cypress/downloads/ s3://${S3_BUCKET_NAME}/$(date +%Y-%m-%d)/ --recursive --exclude "*" --include "*.csv"
                   else
                     echo "No downloads directory found"
